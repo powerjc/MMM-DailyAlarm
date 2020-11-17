@@ -93,6 +93,7 @@ Module.register("MMM-DailyAlarm", {
   },
   getSunset(lat, long) {
     var result; 
+    Log.info("Hellow from getSunset")
     fetch(`https://https://api.sunrise-sunset.org/json?lat=${lat}&lng=${long}&formatted=0`).then((response) => {
           response.json().then((results) => {
               return this.sunset;
