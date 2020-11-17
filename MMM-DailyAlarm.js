@@ -7,6 +7,9 @@ Module.register("MMM-DailyAlarm", {
       time: "",
       showAt: "00:00:00",
       hideAt: "23:59:59",
+      sunset: false,
+      lat: "",
+      long: "",
       exceptDays: [], // [] for all days, available values : MON, TUE, WED, THU, FRI, SAT, SUN
       customClass: "", //If you want to set custom CSS class to this event.
       beforeText: "Alarm",
@@ -56,10 +59,15 @@ Module.register("MMM-DailyAlarm", {
     if (t.isBefore(s)) {
       t.add(1, "day")
     }
-    event.id = index
-    event.time = t
+    if (event.sunset)) {
+      event.time = getSunset(event.lat, event.long)
+    }
+    else {
+      event.time = t
+    }
     event.showAt = s
     event.hideAt = h
+    event.id = index  
     event.passed = (now.isAfter(t)) ? true : false
     this.events[i] = event
   },
@@ -83,7 +91,15 @@ Module.register("MMM-DailyAlarm", {
         break
     }
   },
-
+  getSunset(lat, long) {
+    var result; 
+    fetch(`https://https://api.sunrise-sunset.org/json?lat=${lat}&lng=${long}&formatted=0`).then((response) => {
+          response.json().then((results) => {
+              return this.sunset;
+          });
+     });
+    return this.sunset;
+  },
   refresh: function() {
     this.drawAll()
     if (this.updateTimestamp !== moment().format("YYYY-MM-DD")) {
