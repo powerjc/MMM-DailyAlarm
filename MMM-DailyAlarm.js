@@ -98,7 +98,6 @@ Module.register("MMM-DailyAlarm", {
               return this.sunset;
           });
      });
-    return this.sunset;
   },
   refresh: function() {
     this.drawAll()
