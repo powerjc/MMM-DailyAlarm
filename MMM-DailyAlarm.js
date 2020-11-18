@@ -93,10 +93,10 @@ Module.register("MMM-DailyAlarm", {
   },
   getSunset(lat, long) {
     var result; 
-    Log.debug("Hellow from getSunset")
+    Log.err("Hellow from getSunset")
     fetch(`https://https://api.sunrise-sunset.org/json?lat=${lat}&lng=${long}&formatted=0`)
       .then(response => response.json())
-      .then(json => Log.debug(json.results.sunset))       
+      .then(json => Log.err(json.results.sunset))       
   },
   refresh: function() {
     this.drawAll()
