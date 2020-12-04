@@ -1,42 +1,81 @@
 Module.register("MMM-DailyAlarm", {
-  defaults: {
-    refreshInterval: 1000,
-    alarms: [
-    ],
-    defaultAlarm: {
-      time: "",
-      showAt: "00:00:00",
-      hideAt: "23:59:59",
-      sunset: false,
-      lat: "",
-      long: "",
-      exceptDays: [], // [] for all days, available values : MON, TUE, WED, THU, FRI, SAT, SUN
-      customClass: "", //If you want to set custom CSS class to this event.
-      beforeText: "Alarm",
-      afterText: "", //If omitted or null or "", `beforeText` will be used after time.
-      alarmSound: "", //path for alarm sound,
-      humanize: false,
-      alarmNotification: {
-        notification: null,
-        payload: {}
-      }
-    }
-  },
+	// Default module config.
+	defaults: {
+		event: "New Millenium:",
+		date: "3000-01-01",
+		showHours: true,
+		showMinutes: true,
+		showSeconds: true,
+		customInterval: 1000,
+		daysLabel: 'd',
+		hoursLabel: 'h',
+		minutesLabel: 'm',
+		secondsLabel: 's',
+    userlat: "",
+    userlon: "",
+    beforeText: "Alarm",
+    afterText: "", //If omitted or null or "", `beforeText` will be used after time.
+
+	},
+
+	// set update interval
+	start: function() {
+		var self = this;
+		setInterval(function() {
+			self.updateDom(); // no speed defined, so it updates instantly.
+		}, this.config.customInterval); 
+	},
 
   getStyles: function() {
     return ["MMM-DailyAlarm.css"]
   },
 
-  getScripts: function() {
-    return ["moment.js"]
-  },
+	// Update function
+	getDom: function() {
+		var wrapper = document.createElement("div");
 
-  start: function() {
-    this.events = []
-    this.updateTimestamp = null
-    this.prepareAllEvents()
+		var timeWrapper = document.createElement("div");
+		var textWrapper = document.createElement("div");
 
-  },
+		textWrapper.className = "align-left week dimmed medium";
+		timeWrapper.className = "time bright xlarge light";
+		textWrapper.innerHTML=this.config.event;
+
+		var today = new Date(Date.now());
+		var target = new Date(this.config.date);
+		var timeDiff = target - today;
+
+		// Set days, hours, minutes and seconds
+		var diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+		var diffHours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+		var diffMinutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+		var diffSeconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+		
+		// Build the output
+		var hrs = '';
+		var mins = '';
+		var secs = '';
+		var days = diffDays + this.config.daysLabel;
+    
+    var srss = getSRSS();
+    var sunset = srss.sunset;
+    var utcsunset = moment.utc(sunset).toDate(); //utcsunset is the date we want to provde as the event
+    //var sunset = config.timeFormat == 12?
+    //moment(utcsunset.local().format("h:mm");
+    //moment(utcsunset.local().format("HH:mm");
+    
+    
+		if(this.config.showHours == true) hrs = diffHours + this.config.hoursLabel;
+		if(this.config.showMinutes == true) mins = diffMinutes + this.config.minutesLabel;
+		if(this.config.showSeconds == true) secs = diffSeconds + this.config.secondsLabel;
+
+		timeWrapper.innerHTML = days + hrs + mins + secs;
+
+		wrapper.appendChild(textWrapper);
+		wrapper.appendChild(timeWrapper);
+
+		return wrapper;
+	}
 
   prepareAllEvents: function() {
     for (i in this.config.alarms) {
@@ -44,132 +83,23 @@ Module.register("MMM-DailyAlarm", {
     }
     this.updateTimestamp = moment().format("YYYY-MM-DD")
   },
-
-  prepareEvent: function(index, ev) {
-    var now = new moment()
-    var today = now.format("YYYY-MM-DD")
-    var tDay = now.isoWeekday()
-    var event = Object.assign({}, this.config.defaultAlarm, ev)
-    var s = moment(today + " " + event.showAt)
-    var h = moment(today + " " + event.hideAt)
-    var t = moment(today + " " + event.time)
-    if (h.isBefore(s)) {
-      h.add(1, "day")
-    }
-    if (t.isBefore(s)) {
-      t.add(1, "day")
-    }
-    if (event.sunset)) {
-      event.time = getSunset(event.lat, event.long)
-    }
-    else {
-      event.time = t
-    }
-    event.showAt = s
-    event.hideAt = h
-    event.id = index  
-    event.passed = (now.isAfter(t)) ? true : false
-    this.events[i] = event
+  getSRSS: function() {
+     var self = this;
+     url = "https://api.sunrise-sunset.org/json?lat="+this.config.userlat+"&lng="+this.config.userlon+"&formatted=0";
+     request(url, function(error, response, body) {
+         if (error) {
+             console.log("Error: " + err.message);
+         }
+         return pasreSRSS(body);
+     });
   },
-
-  getDom: function() {
-    var wrapper = document.createElement("div")
-    wrapper.id = "DAILYALARM_WRAPPER"
-    var da = document.createElement("div")
-    da.id = "DAILYALARM"
-    var audio = document.createElement("audio")
-    audio.id = "DA_AUDIO"
-    wrapper.appendChild(da)
-    wrapper.appendChild(audio)
-    return wrapper
+  parseSRSS: function(response) {
+     var srss = JSON.parse(response);
+     sun = {
+       sunrise: srss.results.sunrise,
+       sunset: srss.results.sunset,
+       day: srss.results.day_length
+     }
+     return sun;
   },
-
-  notificationReceived: function(noti, payload, sender) {
-    switch(noti) {
-      case "DOM_OBJECTS_CREATED":
-        this.refresh()
-        break
-    }
-  },
-  getSunset(lat, long) {
-    var result; 
-    Log.err("Hellow from getSunset")
-    fetch(`https://https://api.sunrise-sunset.org/json?lat=${lat}&lng=${long}&formatted=0`)
-      .then(response => response.json())
-      .then(json => Log.err(json.results.sunset))       
-  },
-  refresh: function() {
-    this.drawAll()
-    if (this.updateTimestamp !== moment().format("YYYY-MM-DD")) {
-      this.prepareAllEvents()
-    }
-    setTimeout(()=>{
-      this.refresh()
-    }, this.config.refreshInterval)
-  },
-
-  drawAll: function() {
-    var wrapper = document.getElementById("DAILYALARM")
-    wrapper.innerHTML = ""
-    for (i in this.events) {
-      this.draw(this.events[i])
-    }
-  },
-
-  draw: function(ev) {
-    const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
-    var now = new moment()
-    var isVisible = (now.isAfter(ev.showAt) && now.isBefore(ev.hideAt))
-    var isExcept = ev.exceptDays.includes(DAYS[ev.time.isoWeekday()])
-    var isPassed = now.isAfter(ev.time)
-    if (!isExcept) {
-      if (isVisible) {
-        var event = document.createElement("div")
-        event.className = ev.customClass
-        var text = document.createElement("div")
-        text.className = "text"
-        var time = document.createElement("div")
-        time.className = "time"
-        var diff = null
-        if (isPassed) {
-          event.className += " after"
-          text.innerHTML = (ev.afterText) ? ev.afterText : ev.beforeText
-          diff = now.diff(ev.time)
-        } else {
-          event.className += " before"
-          text.innerHTML = ev.beforeText
-          diff = ev.time.diff(now)
-        }
-
-        if (ev.humanize) {
-          diff = ev.time.diff(now)
-          var duration = moment.duration(diff)
-          time.innerHTML = duration.humanize(true)
-          time.className += " humanized"
-        } else {
-
-          time.innerHTML = moment.utc(diff).format("HH:mm:ss")
-        }
-        event.appendChild(text)
-        event.appendChild(time)
-        var wrapper = document.getElementById("DAILYALARM")
-        wrapper.appendChild(event)
-      }
-      if (!ev.passed) {
-        if (isPassed) {
-          ev.passed = true
-          if (ev.alarmNotification.notification) {
-            var payload = ev.alarmNotification.payload
-            this.sendNotification(ev.alarmNotification.notification, payload)
-          }
-          if (ev.alarmSound) {
-            var audio = document.getElementById("DA_AUDIO")
-            audio.src = "/modules/MMM-DailyAlarm/resources/" + ev.alarmSound
-            audio.play()
-          }
-        }
-      }
-    }
-  },
-
-})
+});
